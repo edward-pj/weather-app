@@ -7,15 +7,22 @@ import { StyleSheet } from "react-native";
 
 const Tab = createBottomTabNavigator();
 
-const HomeTabs = () => {
+/**
+ * HomeTabs component
+ * @param {boolean} hasPermission - whether location permission was granted
+ */
+const HomeTabs = ({ hasPermission }) => {
   return (
     <Tab.Navigator
+      // 👇 If permission granted → Weather is default tab, else → Cities
+      initialRouteName={hasPermission ? "Weather" : "Cities"}
       screenOptions={{
-        headerShown: false, // 👈 hides the header
+        headerShown: false, // hide the default header
         tabBarStyle: styles.tabBarStyle,
         tabBarItemStyle: styles.tabBarItemStyle,
       }}
     >
+      {/* 🌤️ Weather Tab */}
       <Tab.Screen
         name="Weather"
         component={WeatherScreen}
@@ -27,11 +34,13 @@ const HomeTabs = () => {
               color={color}
             />
           ),
-          tabBarActiveBackgroundColor: "#ca8a04",
-          tabBarActiveTintColor: "#ffffff",
-          tabBarInactiveTintColor: "#0007",
+          tabBarActiveBackgroundColor: "#ca8a04", // active tab background
+          tabBarActiveTintColor: "#ffffff", // active icon/text color
+          tabBarInactiveTintColor: "#0007", // inactive icon/text color
         }}
       />
+
+      {/* 🏙️ Cities Tab */}
       <Tab.Screen
         name="Cities"
         component={CitiesScreen}
@@ -55,7 +64,7 @@ const HomeTabs = () => {
 const styles = StyleSheet.create({
   tabBarStyle: {
     position: "absolute",
-    bottom: 20, 
+    bottom: 20,
     left: 20,
     right: 20,
     borderRadius: 40,
@@ -65,13 +74,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 5,
     elevation: 20,
-    marginBottom:20,
-    marginLeft:20,
-    marginRight:20,
+    marginBottom: 20,
+    marginLeft: 20,
+    marginRight: 20,
   },
   tabBarItemStyle: {
     borderRadius: 200,
-    marginBottom:-20
+    marginBottom: -20,
   },
 });
 
