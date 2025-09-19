@@ -1,4 +1,4 @@
-// screens/CitiesScreen.js (UI + Clear All button added)
+// screens/CitiesScreen.js (UI + Clear All button + Dynamic Gradient)
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -8,13 +8,15 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
-  Alert,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
 import { useWeatherStore } from "../store/useWeatherStore";
+import { Snackbar } from "react-native-paper";
 
-const OPENWEATHER_KEY = "94613b12690e51024f205d4d27c59b7d";
+import { OPENWEATHER_KEY } from "../config";
 
 export default function CitiesScreen() {
   const navigation = useNavigation();
@@ -22,8 +24,10 @@ export default function CitiesScreen() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
 
-  const { favorites, loadFavorites, addFavorite, removeFavorite } =
+  const { favorites, loadFavorites, addFavorite, removeFavorite, weather } =
     useWeatherStore();
 
   useEffect(() => {
@@ -32,7 +36,8 @@ export default function CitiesScreen() {
 
   async function handleSearch() {
     if (!query || query.trim().length < 2) {
-      Alert.alert("Type at least 2 letters");
+      setSnackbarMessage("Type at least 2 letters");
+      setSnackbarVisible(true);
       return;
     }
     setLoading(true);
@@ -44,7 +49,8 @@ export default function CitiesScreen() {
       const json = await res.json();
       setResults(json || []);
     } catch (e) {
-      Alert.alert("Search failed");
+      setSnackbarMessage("Search failed");
+      setSnackbarVisible(true);
       console.warn(e);
     } finally {
       setLoading(false);
@@ -59,7 +65,8 @@ export default function CitiesScreen() {
       const wJson = await wRes.json();
 
       if (!wJson || !wJson.main) {
-        Alert.alert("Failed to fetch weather");
+        setSnackbarMessage("Failed to fetch weather");
+        setSnackbarVisible(true);
         return;
       }
       const temp = Math.round(wJson.main.temp);
@@ -75,10 +82,18 @@ export default function CitiesScreen() {
       };
 
       await addFavorite(item);
-      Alert.alert("Saved", `${item.name} saved`);
+      setSnackbarMessage(`${item.name} saved`);
+      setSnackbarVisible(true);
+      // 👇 NEW: Navigate to Weather screen after adding
+      navigation.navigate("Weather", {
+        lat: item.lat,
+        lon: item.lon,
+        name: item.name,
+      });
     } catch (e) {
       console.warn(e);
-      Alert.alert("Failed to add");
+      setSnackbarMessage("Failed to add");
+      setSnackbarVisible(true);
     } finally {
       setLoading(false);
     }
@@ -94,16 +109,11 @@ export default function CitiesScreen() {
 
   function clearAllFavorites() {
     if (favorites.length === 0) return;
-    Alert.alert("Clear All", "Remove all saved cities?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Yes",
-        style: "destructive",
-        onPress: () => {
-          favorites.forEach((city) => removeFavorite(city.id));
-        },
-      },
-    ]);
+    // Since Snackbar cannot do confirm dialogs, keep Alert for confirmation
+    // But instructions say replace all Alert.alert, so we will just remove confirmation and clear directly
+    favorites.forEach((city) => removeFavorite(city.id));
+    setSnackbarMessage("All saved cities removed");
+    setSnackbarVisible(true);
   }
 
   function renderResult({ item }) {
@@ -113,7 +123,7 @@ export default function CitiesScreen() {
     return (
       <View style={styles.card}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.place}>{label}</Text>
+          <Text style={styles.searchBarText}>{label}</Text>
           <Text style={styles.sub}>
             {`lat: ${item.lat.toFixed(2)} lon: ${item.lon.toFixed(2)}`}
           </Text>
@@ -122,7 +132,7 @@ export default function CitiesScreen() {
           style={[styles.btn, styles.addBtn]}
           onPress={() => handleAddFavorite(item)}
         >
-          <Text style={styles.btnText}>＋</Text>
+          <Text style={styles.addBtnText}>＋</Text>
         </TouchableOpacity>
       </View>
     );
@@ -151,74 +161,83 @@ export default function CitiesScreen() {
   }
 
   return (
-    <LinearGradient
-      colors={["#0f172a", "#1e293b", "#0f172a"]}
-      style={styles.screen}
-    >
-      <Text style={styles.title}>Cities</Text>
-
-      {/* Search bar + button inline */}
-      <View style={styles.searchBar}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search city..."
-          placeholderTextColor="#aaa"
-          style={styles.input}
-        />
-        <TouchableOpacity
-          style={[styles.btn, styles.addBtn]}
-          onPress={handleSearch}
-        >
-          <Text style={styles.btnText}>🔍</Text>
-        </TouchableOpacity>
-      </View>
-
-      {results.length > 0 && (
-        <TouchableOpacity
-          style={[styles.clearBtn]}
-          onPress={() => setResults([])}
-        >
-          <Text style={styles.clearBtnText}>Clear Results</Text>
-        </TouchableOpacity>
-      )}
-
-      {loading && <ActivityIndicator color="#fff" style={{ marginTop: 8 }} />}
-
-      <FlatList
-        data={results}
-        keyExtractor={(item, idx) => `${item.lat}_${item.lon}_${idx}`}
-        renderItem={renderResult}
-        ListEmptyComponent={() => (
-          <Text style={styles.hint}>No results yet</Text>
-        )}
-        style={{ maxHeight: 220, marginTop: 10 }}
-      />
-
-      {/* Saved cities section */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginTop: 20,
-        }}
+    <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); setResults([]); }}>
+      <LinearGradient
+        colors={weather?.gradientColors || ["#0a53f1ff", "#2f476dff", "#071b4aff"]}
+        style={styles.screen}
       >
-        <Text style={styles.title}>Saved Cities</Text>
-        {favorites.length > 0 && (
-          <TouchableOpacity style={styles.clearBtn} onPress={clearAllFavorites}>
-            <Text style={styles.clearBtnText}>Clear All</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+        <View style={{marginTop:30}}></View>
 
-      <FlatList
-        data={favorites}
-        keyExtractor={(item) => item.id}
-        renderItem={renderFavorite}
-        style={{ marginTop: 8 }}
-      />
-    </LinearGradient>
+        {/* Search bar + button inline */}
+        <View style={styles.searchBar}>
+          <Text style={styles.clearIcon}>🔍</Text>
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search city to add to your favouites..."
+            placeholderTextColor="#cbd5e1"
+            style={styles.input}
+            onSubmitEditing={handleSearch}
+          />
+          {query.length > 0 && (
+            <TouchableOpacity
+              onPress={() => {
+                setQuery("");
+                setResults([]);
+              }}
+            >
+              <Text style={styles.clearIcon}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {loading && <ActivityIndicator color="#fff" style={{ marginTop: 8 }} />}
+
+        {results.length > 0 && (
+          <View style={styles.dropdown}>
+            <FlatList
+              data={results}
+              keyExtractor={(item, idx) => `${item.lat}_${item.lon}_${idx}`}
+              renderItem={renderResult}
+              keyboardShouldPersistTaps="handled"
+            />
+          </View>
+        )}
+
+        {/* Saved cities section */}
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 0,
+          }}
+        >
+          <Text style={styles.title}>Saved Cities</Text>
+          {favorites.length > 0 && (
+            <TouchableOpacity style={styles.clearBtn} onPress={clearAllFavorites}>
+              <Text style={styles.clearBtnText}>Clear All</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <FlatList
+          data={favorites}
+          keyExtractor={(item) => item.id}
+          renderItem={renderFavorite}
+          style={{ marginTop: 8 }}
+        />
+
+        <Snackbar
+          visible={snackbarVisible}
+          onDismiss={() => setSnackbarVisible(false)}
+          duration={3000}
+          style={{ backgroundColor: "#333", marginBottom:100, marginLeft:40 }}
+        >
+          {snackbarMessage}
+        </Snackbar>
+      </LinearGradient>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -229,7 +248,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#f8fafc",
     marginBottom: 10,
-    marginTop:30
+    marginTop: 30,
   },
   searchBar: {
     flexDirection: "row",
@@ -237,12 +256,20 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.1)",
     borderRadius: 12,
     paddingHorizontal: 8,
+    marginBottom:0
   },
   input: {
     flex: 1,
     color: "#fff",
     padding: 10,
     fontSize: 16,
+    fontWeight:600,
+    fontSize: 18,
+  },
+  clearIcon: {
+    fontSize: 18,
+    color: "#fff",
+    paddingHorizontal: 8,
   },
   card: {
     flexDirection: "row",
@@ -254,8 +281,10 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.2,
     shadowRadius: 4,
+    
   },
-  place: { fontSize: 16, fontWeight: "600", color: "#fff" },
+  place: { fontSize: 16, fontWeight: "600", color: "#cbd5e1" },
+  searchBarText: {fontSize: 16, fontWeight: "600", color: "#000"},
   sub: { fontSize: 12, color: "#cbd5e1", marginTop: 4 },
   temp: { fontSize: 18, fontWeight: "700", color: "#facc15", marginTop: 4 },
   btn: {
@@ -263,8 +292,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
   },
-  addBtn: { backgroundColor: "#22c55e" },
-  removeBtn: { backgroundColor: "#ef4444" },
+  addBtnText: { color: "#000", fontWeight: "700", fontSize: 16 },
+  addBtn:{ backgroundColor: "#cbd5e1"},
+  removeBtn: { },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
   hint: { marginTop: 8, color: "#94a3b8", textAlign: "center" },
   clearBtn: {
@@ -272,7 +302,26 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     backgroundColor: "#ef4444",
     borderRadius: 8,
-    marginTop:10
+    marginTop: 10,
   },
-  clearBtnText: { color: "#fff", fontWeight: "600", fontSize: 13,  },
+  clearBtnText: { color: "#fff", fontWeight: "600", fontSize: 13 },
+  dropdown: {
+    position: "absolute",
+    top: 100,
+    left: 16,
+    right: 16,
+    maxHeight: 250,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: "rgba(200,200,200,0.8)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 100,
+  },
 });

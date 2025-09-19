@@ -4,27 +4,28 @@
     "slug": "weatherApp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "/Users/prathamjain/Downloads/Coding club tasks/Weather App/weatherApp/assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "/Users/prathamjain/Downloads/Coding club tasks/Weather App/weatherApp/assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.edward-pj.weatherApp"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "/Users/prathamjain/Downloads/Coding club tasks/Weather App/weatherApp/assets/icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.edward_pj.weatherApp"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "/Users/prathamjain/Downloads/Coding club tasks/Weather App/weatherApp/assets/icon.png"
     },
     "extra": {
       "eas": {

@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { OPENWEATHER_KEY } from "../config";
 
 const STORAGE_KEY = "@myapp:favorites";
-const OPENWEATHER_KEY = "94613b12690e51024f205d4d27c59b7d"; // <-- add your key here
-
+ 
 function formatTime(unixSeconds) {
   if (!unixSeconds) return "";
   return new Date(unixSeconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -11,6 +11,32 @@ function formatTime(unixSeconds) {
 function formatHourLabel(unixSeconds) {
   if (!unixSeconds) return "";
   return new Date(unixSeconds * 1000).toLocaleTimeString([], { hour: "numeric" });
+}
+
+// Gradient themes based on conditions
+const gradientThemes = {
+  Night: ["#0A1135", "#1E285D", "#3C3775"],
+  Rain: ["#14213D", "#223354", "#2B4162"],
+  Thunderstorm: ["#14213D", "#223354", "#2B4162"],
+  Snow: ["#A9D6E5", "#C3E1ED", "#D7EBF2"],
+  Clear: ["#FFAC81", "#FF928B", "#FFD18E"], // sunny
+  Clouds: ["#ADB5BD", "#9FA8B0", "#899299"], // evening feel
+  Mist: ["#ADB5BD", "#9FA8B0", "#899299"],   // foggy/overcast
+  Default: ["#FFAC81", "#FF928B", "#FFD18E"],
+};
+
+// helper to pick gradient based on condition + time
+function getGradient(condition) {
+  if (!condition) return gradientThemes.Default;
+
+  if (condition === "Clear") {
+    const hour = new Date().getHours();
+    if (hour >= 19 || hour < 5) {
+      return gradientThemes.Night;
+    }
+    return gradientThemes.Clear;
+  }
+  return gradientThemes[condition] || gradientThemes.Default;
 }
 
 export const useWeatherStore = create((set, get) => ({
@@ -26,7 +52,6 @@ export const useWeatherStore = create((set, get) => ({
   addFavorite: async (item) => {
     const favorites = get().favorites;
     const exists = favorites.find((f) => f.id === item.id);
-    // .find() will return true or false
 
     const newList = exists
       ? favorites.map((f) => (f.id === item.id ? item : f))
@@ -54,23 +79,23 @@ export const useWeatherStore = create((set, get) => ({
       const onecallUrl =
         `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}` +
         `&units=metric&exclude=minutely,alerts&appid=${OPENWEATHER_KEY}`;
-
+      console.log("working")
       const res = await fetch(onecallUrl);
 
       if (!res.ok) {
-        // fallback
         const curUrl =
           `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}` +
           `&units=metric&appid=${OPENWEATHER_KEY}`;
         const curRes = await fetch(curUrl);
         const curJson = await curRes.json();
-        console.log(curJson)
+
+        const condition = curJson.weather?.[0]?.main || "Sunny";
 
         set({
           weather: {
             city: curJson.name || passedName || "UNKNOWN",
             temp: Math.round(curJson.main?.temp ?? 0),
-            condition: curJson.weather?.[0]?.main || "Sunny",
+            condition,
             humidity: curJson.main?.humidity ?? 0,
             wind: curJson.wind?.speed ?? 0,
             feelsLike: Math.round(curJson.main?.feels_like ?? 0),
@@ -80,11 +105,10 @@ export const useWeatherStore = create((set, get) => ({
               hour: "numeric",
               minute: "2-digit",
             }),
-            hourly: [],
+            gradientColors: getGradient(condition), // 🎨 assign gradient
           },
         });
 
-        // ✅ stop loading here too
         set({ loading: false });
         return;
       }
@@ -92,12 +116,6 @@ export const useWeatherStore = create((set, get) => ({
       const data = await res.json();
       const current = data.current || {};
       const currentMain = current.weather?.[0]?.main || "";
-
-      const hourly = (data.hourly || []).slice(0, 24).map((h) => ({
-        label: formatHourLabel(h.dt),
-        icon: currentMain.toLowerCase(), // simplify; you can remap if needed
-        temp: Math.round(h.temp),
-      }));
 
       set({
         weather: {
@@ -113,13 +131,12 @@ export const useWeatherStore = create((set, get) => ({
             hour: "numeric",
             minute: "2-digit",
           }),
-          hourly,
+          gradientColors: getGradient(currentMain), // 🎨 assign gradient
         },
       });
     } catch (e) {
       set({ error: e.message || "Failed to fetch weather" });
     } finally {
-      // ✅ always stop loading at the end
       set({ loading: false });
     }
   },
